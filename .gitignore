@@ -1,0 +1,8 @@
+.buildozer/
+bin/
+__pycache__/
+*.pyc
+*.pyo
+venv/
+config.json
+models/
