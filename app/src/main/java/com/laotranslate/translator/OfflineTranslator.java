@@ -269,7 +269,8 @@ public class OfflineTranslator {
                 encInputs.put("attention_mask", maskTensor);
 
                 OrtSession.Result encResult = encoderSession.run(encInputs);
-                OnnxTensor encoderHiddenStates = (OnnxTensor) encResult.get("last_hidden_state");
+                // encResult.get(String) 返回 Optional<OnnxValue>，需要 unwrap
+                OnnxTensor encoderHiddenStates = (OnnxTensor) encResult.get("last_hidden_state").get();
                 long[] encShape = encoderHiddenStates.getInfo().getShape();
 
                 // 创建 decoder 的 attention mask（长度 = encoder 输出序列长度）
