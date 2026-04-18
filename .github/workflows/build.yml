@@ -7,12 +7,12 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -21,13 +21,13 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            autoconf automake libtool libtool-bin \
-            pkg-config zlib1g-dev cmake \
-            libffi-dev libssl-dev lld
+            autoconf automake libtool-bin pkg-config \
+            zlib1g-dev cmake libffi-dev libssl-dev \
+            lld
 
       - name: Install Python dependencies
         run: |
-          pip install buildozer cython kivy
+          pip install buildozer cython
 
       - name: Cache buildozer
         uses: actions/cache@v4
@@ -35,31 +35,30 @@ jobs:
           path: |
             ~/.buildozer
             .buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-ubuntu22-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            buildozer-${{ runner.os }}-
-
-      - name: Accept Android SDK licenses
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-          yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses 2>/dev/null || true
+            buildozer-ubuntu22-
 
       - name: Build APK
         run: |
           export JAVA_HOME=$JAVA_HOME_17_X64
+          export ACLOCAL_PATH="/usr/share/aclocal"
           buildozer android debug 2>&1 | tee build.log
 
-      - name: Check APK exists
+      - name: Find APK
         run: |
-          ls -la bin/ || echo "No bin directory"
-          find . -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+          echo "=== Looking for APK ==="
+          find . -name "*.apk" -type f 2>/dev/null
+          ls -la bin/ 2>/dev/null || echo "No bin dir"
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: translator-apk
-          path: bin/*.apk
+          path: |
+            bin/*.apk
+            **/*.apk
 
       - name: Upload build log on failure
         if: failure()
