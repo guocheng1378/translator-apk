@@ -36,6 +36,9 @@ jobs:
       - name: Build APK
         run: |
           export JAVA_HOME=$JAVA_HOME_17_X64
+          export ANDROID_ACCEPT_SDK_LICENSE=1
+          # Accept all SDK licenses
+          yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses 2>/dev/null || true
           buildozer android debug 2>&1 | tee build.log
 
       - name: Upload APK
