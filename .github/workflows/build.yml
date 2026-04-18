@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -42,13 +45,14 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: translator-apk
           path: app/build/outputs/apk/debug/*.apk
 
-      # ====== 自动创建 GitHub Release ======
       - name: Create Release
+        if: success()
         id: create_release
         uses: actions/create-release@v1
         env:
@@ -60,6 +64,7 @@ jobs:
           prerelease: false
 
       - name: Upload APK to Release
+        if: success()
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
