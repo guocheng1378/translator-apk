@@ -17,10 +17,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq autoconf automake libtool pkg-config zlib1g-dev cmake libffi-dev libssl-dev
+          sudo apt-get install -y -qq \
+            autoconf automake libtool libtool-bin \
+            pkg-config zlib1g-dev cmake \
+            libffi-dev libssl-dev lld
+
+      - name: Install Python dependencies
+        run: |
           pip install buildozer cython kivy
 
       - name: Cache buildozer
@@ -33,15 +39,23 @@ jobs:
           restore-keys: |
             buildozer-${{ runner.os }}-
 
+      - name: Accept Android SDK licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+          yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses 2>/dev/null || true
+
       - name: Build APK
         run: |
           export JAVA_HOME=$JAVA_HOME_17_X64
-          export ANDROID_ACCEPT_SDK_LICENSE=1
-          # Accept all SDK licenses
-          yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses 2>/dev/null || true
           buildozer android debug 2>&1 | tee build.log
 
+      - name: Check APK exists
+        run: |
+          ls -la bin/ || echo "No bin directory"
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: translator-apk

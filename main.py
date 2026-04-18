@@ -2,15 +2,11 @@
 """老挝语↔中文 翻译 App (Kivy + Flask + 语音)"""
 
 import os
-import sys
 import json
 import hashlib
 import random
 import threading
-import time
 import traceback
-import asyncio
-import tempfile
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -18,7 +14,7 @@ from kivy.utils import platform
 from kivy.clock import Clock
 from kivy.core.window import Window
 
-from flask import Flask, request, jsonify, render_template_string, send_file
+from flask import Flask, request, jsonify, render_template_string
 
 flask_app = Flask(__name__)
 
@@ -52,10 +48,8 @@ def get_offline_model():
         model_name = 'facebook/nllb-200-distilled-600M'
         cache_dir = os.path.join(get_data_dir(), 'models')
         os.makedirs(cache_dir, exist_ok=True)
-        print(f'[离线] 加载模型 {model_name} ...')
         _offline_tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir)
         _offline_model = AutoModelForSeq2SeqLM.from_pretrained(model_name, cache_dir=cache_dir)
-        print('[离线] 模型加载完成')
     return _offline_model, _offline_tokenizer
 
 def baidu_translate(text, from_lang, to_lang, app_id, secret_key):
@@ -85,21 +79,6 @@ def offline_translate(text, from_lang, to_lang):
                             max_length=512)
     result = tokenizer.batch_decode(tokens, skip_special_tokens=True)
     return result[0] if result else ''
-
-def generate_tts(text, lang='zh'):
-    import edge_tts
-    voice = 'zh-CN-XiaoxiaoNeural' if lang == 'zh' else 'th-TH-PremwadeeNeural'
-    async def _gen():
-        tmp = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
-        tmp.close()
-        comm = edge_tts.Communicate(text, voice)
-        await comm.save(tmp.name)
-        return tmp.name
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(_gen())
-    finally:
-        loop.close()
 
 HTML_PAGE = r'''<!DOCTYPE html>
 <html lang="zh">
@@ -215,7 +194,7 @@ textarea::placeholder{color:#475569}
   </div>
 </div>
 <script>
-let f='lo',t='zh',rec=null,recording=false,audio=null;
+let f='lo',t='zh',rec=null,recording=false;
 function setL(e){document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
   e.classList.add('active');f=e.dataset.from;t=e.dataset.to;ul();}
 function swp(){[f,t]=[t,f];
@@ -258,17 +237,14 @@ function toggleV(){if(!rec){rec=initSR();if(!rec)return;}
   if(recording){rec.stop();}else{
     const lm={lo:'lo-LA',zh:'zh-CN'};rec.lang=lm[f]||'zh-CN';
     try{rec.start();}catch(e){rec.stop();setTimeout(()=>rec.start(),100);}}}
-// 语音播报
+// 语音播报 (浏览器内置TTS)
 function speak(){let o=document.getElementById('out'),txt=o.textContent.trim();
-  if(!txt||o.classList.contains('empty'))return;let b=document.getElementById('sbtn');
-  if(audio&&!audio.paused){audio.pause();audio=null;b.classList.remove('playing');return;}
-  b.classList.add('playing');b.disabled=true;
-  audio=new Audio('/tts?text='+encodeURIComponent(txt)+'&lang='+t);
-  audio.oncanplaythrough=()=>{b.disabled=false;audio.play();};
-  audio.onended=()=>{b.classList.remove('playing');audio=null;};
-  audio.onerror=()=>{b.classList.remove('playing');b.disabled=false;audio=null;
-    if('speechSynthesis' in window){const u=new SpeechSynthesisUtterance(txt);
-      u.lang=t==='zh'?'zh-CN':'lo-LA';speechSynthesis.speak(u);}};}
+  if(!txt||o.classList.contains('empty'))return;
+  if('speechSynthesis' in window){
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(txt);
+    u.lang=t==='zh'?'zh-CN':'lo-LA';
+    speechSynthesis.speak(u);}}
 // 设置
 async function openS(){try{let r=await fetch('/config');let c=await r.json();
   document.getElementById('ai').value=c.baidu_app_id||'';
@@ -316,21 +292,6 @@ def translate():
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': f'翻译失败: {e}'})
-
-@flask_app.route('/tts')
-def tts():
-    text = request.args.get('text', '').strip()
-    lang = request.args.get('lang', 'zh')
-    if not text:
-        return 'No text', 400
-    try:
-        if len(text) > 500:
-            text = text[:500]
-        path = generate_tts(text, lang)
-        return send_file(path, mimetype='audio/mpeg')
-    except Exception as e:
-        traceback.print_exc()
-        return str(e), 500
 
 @flask_app.route('/config', methods=['GET'])
 def get_cfg():
