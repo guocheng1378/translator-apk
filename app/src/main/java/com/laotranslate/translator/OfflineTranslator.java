@@ -10,6 +10,7 @@ import ai.onnxruntime.OrtSession;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.*;
 
@@ -310,7 +311,7 @@ public class OfflineTranslator {
                 decInputs.put("encoder_hidden_states", encoderHiddenStates);
                 decInputs.put("input_ids", decInputTensor);
                 // 添加 use_cache_branch 输入 (NLLB-200 模型需要)
-                OnnxTensor useCacheBranchTensor = OnnxTensor.createTensor(env, new boolean[]{false}, new long[]{1});
+                OnnxTensor useCacheBranchTensor = OnnxTensor.createTensor(env, ByteBuffer.wrap(new byte[]{0}), new long[]{1});
                 decInputs.put("use_cache_branch", useCacheBranchTensor);
 
                 result = decoderSession.run(decInputs);
@@ -327,7 +328,7 @@ public class OfflineTranslator {
                 inputs.put("input_ids", inputTensor);
                 inputs.put("attention_mask", maskTensor);
                 // 添加 use_cache_branch 输入 (NLLB-200 模型需要)
-                OnnxTensor useCacheBranchTensor2 = OnnxTensor.createTensor(env, new boolean[]{false}, new long[]{1});
+                OnnxTensor useCacheBranchTensor2 = OnnxTensor.createTensor(env, ByteBuffer.wrap(new byte[]{0}), new long[]{1});
                 inputs.put("use_cache_branch", useCacheBranchTensor2);
 
                 result = decoderSession.run(inputs);
