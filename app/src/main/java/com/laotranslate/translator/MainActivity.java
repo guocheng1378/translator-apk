@@ -16,8 +16,6 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -61,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     private MaterialButton btnTranslate, btnLangLoZh, btnLangZhLo;
     private MaterialButton btnDownloadModel, btnDeleteModel;
     private ImageButton btnSwap;
-    private FloatingActionButton fabVoice, fabSpeak, fabCopy;
+    private FloatingActionButton fabVoice, fabSpeak, fabCopy, fabSettings;
     private ProgressBar progressDownload;
 
     // State
@@ -115,7 +113,11 @@ public class MainActivity extends AppCompatActivity {
         fabVoice = findViewById(R.id.fabVoice);
         fabSpeak = findViewById(R.id.fabSpeak);
         fabCopy = findViewById(R.id.fabCopy);
+        fabSettings = findViewById(R.id.fabSettings);
         progressDownload = findViewById(R.id.progressDownload);
+
+        // Settings button
+        fabSettings.setOnClickListener(v -> showSettingsDialog());
 
         // TextWatcher for char count
         etSource.addTextChangedListener(new TextWatcher() {
@@ -586,21 +588,6 @@ public class MainActivity extends AppCompatActivity {
     // ================================================================
     // Settings (Baidu API credentials)
     // ================================================================
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.action_settings) {
-            showSettingsDialog();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
 
     private void showSettingsDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_settings, null);

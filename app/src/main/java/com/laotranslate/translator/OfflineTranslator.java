@@ -20,14 +20,20 @@ import java.util.*;
 public class OfflineTranslator {
     private static final String TAG = "OfflineTranslator";
 
-    // 模型下载地址（替换为你的 GitHub Release 地址）
+    // 模型下载地址 - HuggingFace NLLB-200 distilled 600M
     private static final String MODEL_URL =
-            "https://github.com/guocheng1378/translator-apk/releases/download/model/nllb-200-distilled-600M-quantized.onnx";
+            "https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main/onnx/decoder_model_merged_quantized.onnx";
+    private static final String ENCODER_URL =
+            "https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main/onnx/encoder_model_quantized.onnx";
     private static final String TOKENIZER_URL =
-            "https://github.com/guocheng1378/translator-apk/releases/download/model/tokenizer.json";
+            "https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main/tokenizer.json";
+    private static final String TOKENIZER_CONFIG_URL =
+            "https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main/tokenizer_config.json";
 
-    private static final String MODEL_FILE = "nllb-200-distilled-600M-quantized.onnx";
+    private static final String MODEL_FILE = "decoder_model_merged_quantized.onnx";
+    private static final String ENCODER_FILE = "encoder_model_quantized.onnx";
     private static final String TOKENIZER_FILE = "tokenizer.json";
+    private static final String TOKENIZER_CONFIG_FILE = "tokenizer_config.json";
 
     // NLLB-200 语言代码
     private static final String LANG_ZH = "zho_Hans";  // 中文简体
@@ -58,8 +64,10 @@ public class OfflineTranslator {
      */
     public boolean isModelAvailable() {
         File modelFile = new File(context.getFilesDir(), MODEL_FILE);
+        File encoderFile = new File(context.getFilesDir(), ENCODER_FILE);
         File tokenizerFile = new File(context.getFilesDir(), TOKENIZER_FILE);
-        return modelFile.exists() && tokenizerFile.exists() && modelFile.length() > 10_000_000;
+        return modelFile.exists() && encoderFile.exists() && tokenizerFile.exists()
+                && modelFile.length() > 1_000_000 && encoderFile.length() > 1_000_000;
     }
 
     /**
@@ -76,15 +84,27 @@ public class OfflineTranslator {
         new Thread(() -> {
             try {
                 File modelFile = new File(context.getFilesDir(), MODEL_FILE);
+                File encoderFile = new File(context.getFilesDir(), ENCODER_FILE);
                 File tokenizerFile = new File(context.getFilesDir(), TOKENIZER_FILE);
+                File tokenizerConfigFile = new File(context.getFilesDir(), TOKENIZER_CONFIG_FILE);
 
                 // 下载 tokenizer
                 if (!tokenizerFile.exists()) {
                     downloadFile(TOKENIZER_URL, tokenizerFile, null);
                 }
 
-                // 下载模型（带进度）
-                if (!modelFile.exists() || modelFile.length() < 10_000_000) {
+                // 下载 tokenizer config
+                if (!tokenizerConfigFile.exists()) {
+                    downloadFile(TOKENIZER_CONFIG_URL, tokenizerConfigFile, null);
+                }
+
+                // 下载 encoder（带进度）
+                if (!encoderFile.exists() || encoderFile.length() < 1_000_000) {
+                    downloadFile(ENCODER_URL, encoderFile, callback);
+                }
+
+                // 下载 decoder（带进度）
+                if (!modelFile.exists() || modelFile.length() < 1_000_000) {
                     downloadFile(MODEL_URL, modelFile, callback);
                 }
 
@@ -97,9 +117,29 @@ public class OfflineTranslator {
     }
 
     private void downloadFile(String urlStr, File outputFile, DownloadProgressCallback callback) throws IOException {
-        URL url = new URL(urlStr);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.connect();
+        // Handle redirects (HuggingFace returns 302)
+        HttpURLConnection conn;
+        int redirects = 0;
+        while (true) {
+            URL url = new URL(urlStr);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setInstanceFollowRedirects(false);
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(60000);
+            conn.connect();
+
+            int code = conn.getResponseCode();
+            if (code == HttpURLConnection.HTTP_MOVED_TEMP || code == HttpURLConnection.HTTP_MOVED_PERM
+                    || code == HttpURLConnection.HTTP_SEE_OTHER || code == 307 || code == 308) {
+                String location = conn.getHeaderField("Location");
+                conn.disconnect();
+                urlStr = location;
+                redirects++;
+                if (redirects > 5) throw new IOException("Too many redirects");
+                continue;
+            }
+            break;
+        }
 
         int fileLength = conn.getContentLength();
         try (InputStream input = new BufferedInputStream(conn.getInputStream());
@@ -264,6 +304,8 @@ public class OfflineTranslator {
     public void deleteModel() {
         release();
         new File(context.getFilesDir(), MODEL_FILE).delete();
+        new File(context.getFilesDir(), ENCODER_FILE).delete();
         new File(context.getFilesDir(), TOKENIZER_FILE).delete();
+        new File(context.getFilesDir(), TOKENIZER_CONFIG_FILE).delete();
     }
 }

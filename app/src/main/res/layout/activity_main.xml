@@ -6,7 +6,23 @@
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
+    <!-- Settings Button (top-right) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabSettings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_settings"
+        app:fabSize="mini"
+        app:backgroundTint="@color/card_bg"
+        app:tint="@color/text_dim"
+        app:layout_anchor="@id/scrollView"
+        app:layout_anchorGravity="top|end"
+        android:contentDescription="设置" />
+
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true">
