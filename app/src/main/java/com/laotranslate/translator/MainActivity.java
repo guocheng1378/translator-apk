@@ -245,27 +245,19 @@ public class MainActivity extends AppCompatActivity {
 
     private void setEngineMode(int mode) {
         engineMode = mode;
-        // 选中: 实心蓝底白字, 未选中: 描边透明底
         int blue = getColor(R.color.blue);
         int white = android.graphics.Color.WHITE;
-        int border = getColor(R.color.border);
         int cardBg = getColor(R.color.card_bg);
         int textPrimary = getColor(R.color.text_primary);
 
         btnEngineAuto.setBackgroundTintList(android.content.res.ColorStateList.valueOf(mode == 0 ? blue : cardBg));
         btnEngineAuto.setTextColor(mode == 0 ? white : textPrimary);
-        btnEngineAuto.setStrokeColor(android.content.res.ColorStateList.valueOf(mode == 0 ? blue : border));
-        btnEngineAuto.setStrokeWidth(mode == 0 ? 0 : 1);
 
         btnEngineBaidu.setBackgroundTintList(android.content.res.ColorStateList.valueOf(mode == 1 ? blue : cardBg));
         btnEngineBaidu.setTextColor(mode == 1 ? white : textPrimary);
-        btnEngineBaidu.setStrokeColor(android.content.res.ColorStateList.valueOf(mode == 1 ? blue : border));
-        btnEngineBaidu.setStrokeWidth(mode == 1 ? 0 : 1);
 
         btnEngineOffline.setBackgroundTintList(android.content.res.ColorStateList.valueOf(mode == 2 ? blue : cardBg));
         btnEngineOffline.setTextColor(mode == 2 ? white : textPrimary);
-        btnEngineOffline.setStrokeColor(android.content.res.ColorStateList.valueOf(mode == 2 ? blue : border));
-        btnEngineOffline.setStrokeWidth(mode == 2 ? 0 : 1);
     }
 
     private void updateUI() {
