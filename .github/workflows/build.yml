@@ -44,12 +44,19 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find app/build/outputs -name "*.apk" | head -1)
+          echo "APK_PATH=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK_PATH"
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: translator-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: ${{ steps.find_apk.outputs.APK_PATH }}
 
       - name: Create Release
         if: success()
@@ -70,7 +77,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: app/build/outputs/apk/debug/*.apk
+          asset_path: ${{ steps.find_apk.outputs.APK_PATH }}
           asset_name: translator.apk
           asset_content_type: application/vnd.android.package-archive
 
