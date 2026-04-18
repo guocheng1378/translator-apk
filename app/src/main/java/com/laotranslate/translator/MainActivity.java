@@ -327,6 +327,8 @@ public class MainActivity extends AppCompatActivity {
 
             final String fResult = result;
             final String fEngine = engine;
+            final boolean fOfflineTried = offlineTried;
+            final String fOfflineError = offlineError;
 
             mainHandler.post(() -> {
                 isTranslating = false;
@@ -354,11 +356,11 @@ public class MainActivity extends AppCompatActivity {
 
                     // 优先显示具体错误
                     String baiduErr = BaiduTranslate.getLastError();
-                    if (offlineTried && offlineError != null) {
-                        showError("离线翻译失败: " + offlineError);
+                    if (fOfflineTried && fOfflineError != null) {
+                        showError("离线翻译失败: " + fOfflineError);
                     } else if (baiduErr != null && (engineMode == 1 || engineMode == 0)) {
                         showError(baiduErr);
-                    } else if (offlineTried) {
+                    } else if (fOfflineTried) {
                         showError("未配置百度API，请在右上角⚙设置中配置，或切换到「离线」模式");
                     } else if (engineMode == 2 && !offlineTranslator.isReady()) {
                         showError("离线模型未加载，请先下载或导入离线模型");
