@@ -297,7 +297,7 @@ public class MainActivity extends AppCompatActivity {
                     tvOutput.setTextColor(getColor(R.color.text_hint));
 
                     if (!BaiduTranslate.hasCredentials() && !offlineTranslator.isReady()) {
-                        showError("请配置百度API（右上角⋮设置）或下载离线翻译模型");
+                        showError("请配置百度API（右上角⚙设置）或下载离线翻译模型");
                     } else {
                         showError("翻译失败，请检查网络连接或 API 配置");
                     }
@@ -491,7 +491,18 @@ public class MainActivity extends AppCompatActivity {
 
         if (tts == null) return;
 
-        Locale locale = isLoToZh ? Locale.CHINESE : new Locale("lo", "LA");
+        // 设置语言，老挝语回退到泰语
+        Locale locale;
+        if (isLoToZh) {
+            locale = Locale.CHINESE;
+        } else {
+            locale = new Locale("lo", "LA");
+            int result = tts.setLanguage(locale);
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                locale = new Locale("th", "TH"); // 回退到泰语
+                tts.setLanguage(locale);
+            }
+        }
         tts.setLanguage(locale);
 
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {

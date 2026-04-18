@@ -337,14 +337,12 @@
                 <!-- Voice Input -->
                 <com.google.android.material.floatingactionbutton.FloatingActionButton
                     android:id="@+id/fabVoice"
-                    android:layout_width="50dp"
-                    android:layout_height="50dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:src="@drawable/ic_mic"
                     app:fabSize="mini"
                     app:backgroundTint="@color/card_bg"
                     app:tint="@color/red"
-                    app:strokeColor="@color/red"
-                    app:strokeWidth="2dp"
                     android:layout_marginEnd="14dp"
                     android:contentDescription="语音输入" />
 
@@ -357,14 +355,14 @@
                     android:textSize="16sp"
                     android:textStyle="bold"
                     app:cornerRadius="10dp"
-                    app:backgroundTint="@null"
-                    android:background="@drawable/translate_btn_bg" />
+                    android:background="@drawable/translate_btn_bg"
+                    android:textColor="@android:color/white" />
 
                 <!-- Speak Result -->
                 <com.google.android.material.floatingactionbutton.FloatingActionButton
                     android:id="@+id/fabSpeak"
-                    android:layout_width="50dp"
-                    android:layout_height="50dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:src="@drawable/ic_speaker"
                     app:fabSize="mini"
                     app:backgroundTint="@color/card_bg"
@@ -375,8 +373,8 @@
                 <!-- Copy Result -->
                 <com.google.android.material.floatingactionbutton.FloatingActionButton
                     android:id="@+id/fabCopy"
-                    android:layout_width="50dp"
-                    android:layout_height="50dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:src="@drawable/ic_copy"
                     app:fabSize="mini"
                     app:backgroundTint="@color/card_bg"
