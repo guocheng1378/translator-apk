@@ -189,7 +189,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
-                            android:padding="9dp 16dp"
+                            android:paddingHorizontal="16dp"
+                            android:paddingVertical="9dp"
                             android:gravity="center_vertical"
                             android:background="@color/panel_header_bg">
 
@@ -255,7 +256,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
-                            android:padding="9dp 16dp"
+                            android:paddingHorizontal="16dp"
+                            android:paddingVertical="9dp"
                             android:gravity="center_vertical"
                             android:background="@color/panel_header_bg">
 
@@ -300,7 +302,8 @@
                 android:id="@+id/tvError"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp 16dp"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="12dp"
                 android:background="@drawable/error_bg"
                 android:textColor="@color/red_light"
                 android:textSize="14sp"
