@@ -371,32 +371,31 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "正在导入模型...", Toast.LENGTH_SHORT).show();
 
                 executor.execute(() -> {
+                    StringBuilder errorDetail = new StringBuilder();
                     try {
-                        // 使用 DocumentFile 读取文件
-                        String realPath = getRealPath(uri);
-                        boolean ok = false;
-                        if (realPath != null) {
-                            ok = offlineTranslator.importModel(realPath);
-                        }
-
-                        if (!ok) {
-                            // 尝试通过 content:// URI 复制
-                            ok = importFromUri(uri);
-                        }
+                        // 尝试通过 content:// URI 复制
+                        boolean ok = importFromUri(uri, errorDetail);
 
                         final boolean success = ok;
+                        final String detail = errorDetail.toString();
                         mainHandler.post(() -> {
                             if (success) {
                                 Toast.makeText(this, "模型导入成功", Toast.LENGTH_SHORT).show();
                                 initOfflineTranslator();
                             } else {
-                                Toast.makeText(this, "导入失败：未找到模型文件\n请确保文件夹包含 decoder_model_merged_quantized.onnx 等文件", Toast.LENGTH_LONG).show();
+                                String msg = "导入失败";
+                                if (detail.length() > 0) {
+                                    msg += "\n" + detail;
+                                } else {
+                                    msg += "\n请确保文件夹包含以下文件:\n• decoder_model_merged_quantized.onnx\n• tokenizer.json";
+                                }
+                                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
                             }
                         });
                     } catch (Exception e) {
                         Log.e("Import", "Import failed", e);
                         mainHandler.post(() ->
-                            Toast.makeText(this, "导入失败: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                            Toast.makeText(this, "导入异常: " + e.getMessage(), Toast.LENGTH_LONG).show());
                     }
                 });
             }
@@ -413,55 +412,114 @@ public class MainActivity extends AppCompatActivity {
         return null;
     }
 
-    private boolean importFromUri(android.net.Uri treeUri) {
+    private boolean importFromUri(android.net.Uri treeUri, StringBuilder errorDetail) {
         try {
-            // 使用 DocumentFile.fromTreeUri 解析 SAF 树目录
+            // 持久化 URI 权限（防止重启后失效）
+            try {
+                final int takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION;
+                getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+            } catch (SecurityException e) {
+                Log.w("Import", "Cannot persist URI permission", e);
+            }
+
             androidx.documentfile.provider.DocumentFile treeDoc =
                     androidx.documentfile.provider.DocumentFile.fromTreeUri(this, treeUri);
 
-            if (treeDoc == null || !treeDoc.isDirectory()) return false;
-
-            boolean foundAny = false;
-
-            String[] neededFiles = {
-                "decoder_model_merged_quantized.onnx",
-                "encoder_model_quantized.onnx",
-                "tokenizer.json",
-                "tokenizer_config.json",
-                "nllb-200-distilled-600M-quantized.onnx"
-            };
-
-            String[] dstNames = {
-                "decoder_model_merged_quantized.onnx",
-                "encoder_model_quantized.onnx",
-                "tokenizer.json",
-                "tokenizer_config.json",
-                "decoder_model_merged_quantized.onnx"
-            };
-
-            // 遍历目录中的文件
-            for (androidx.documentfile.provider.DocumentFile doc : treeDoc.listFiles()) {
-                String name = doc.getName();
-                if (name == null) continue;
-
-                for (int i = 0; i < neededFiles.length; i++) {
-                    if (name.equals(neededFiles[i])) {
-                        try (InputStream in = getContentResolver().openInputStream(doc.getUri())) {
-                            if (in != null) {
-                                foundAny |= offlineTranslator.copyFromStream(in, dstNames[i]);
-                            }
-                        }
-                        break;
-                    }
-                }
+            if (treeDoc == null) {
+                errorDetail.append("无法解析选择的文件夹");
+                Log.e("Import", "DocumentFile.fromTreeUri returned null for URI: " + treeUri);
+                return false;
+            }
+            if (!treeDoc.canRead()) {
+                errorDetail.append("无法读取选择的文件夹，请授予存储权限");
+                Log.e("Import", "Cannot read selected directory");
+                return false;
+            }
+            if (!treeDoc.isDirectory()) {
+                errorDetail.append("选择的不是文件夹");
+                return false;
             }
 
-            return foundAny && offlineTranslator.isModelAvailable();
+            // 递归搜索模型文件
+            boolean foundAny = searchAndCopyFiles(treeDoc, errorDetail);
+
+            boolean available = foundAny && offlineTranslator.isModelAvailable();
+            Log.i("Import", "Import result: foundAny=" + foundAny + ", isModelAvailable=" + available);
+            if (!available && foundAny) {
+                errorDetail.append("文件已复制但完整性校验失败，请确保文件完整");
+            }
+            return available;
 
         } catch (Exception e) {
+            errorDetail.append("导入异常: ").append(e.getMessage());
             Log.e("Import", "URI import failed", e);
             return false;
         }
+    }
+
+    /**
+     * 递归搜索 DocumentFile 目录中的模型文件并复制
+     */
+    private boolean searchAndCopyFiles(androidx.documentfile.provider.DocumentFile dir, StringBuilder errorDetail) {
+        boolean foundAny = false;
+
+        String[] neededFiles = {
+            "decoder_model_merged_quantized.onnx",
+            "encoder_model_quantized.onnx",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "nllb-200-distilled-600M-quantized.onnx"
+        };
+
+        String[] dstNames = {
+            "decoder_model_merged_quantized.onnx",
+            "encoder_model_quantized.onnx",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "decoder_model_merged_quantized.onnx"
+        };
+
+        androidx.documentfile.provider.DocumentFile[] files = dir.listFiles();
+        if (files == null || files.length == 0) return false;
+
+        for (androidx.documentfile.provider.DocumentFile doc : files) {
+            if (doc.isDirectory()) {
+                // 递归搜索子目录
+                foundAny |= searchAndCopyFiles(doc, errorDetail);
+                continue;
+            }
+
+            String name = doc.getName();
+            if (name == null) continue;
+
+            for (int i = 0; i < neededFiles.length; i++) {
+                if (name.equals(neededFiles[i])) {
+                    InputStream in = null;
+                    try {
+                        in = getContentResolver().openInputStream(doc.getUri());
+                        if (in != null) {
+                            boolean copied = offlineTranslator.copyFromStream(in, dstNames[i]);
+                            foundAny |= copied;
+                            Log.i("Import", (copied ? "OK " : "FAIL ") + name
+                                    + " → " + dstNames[i] + " (" + doc.length() + " bytes)");
+                        } else {
+                            errorDetail.append("无法打开: ").append(name).append("\n");
+                            Log.w("Import", "openInputStream returned null for: " + name);
+                        }
+                    } catch (Exception e) {
+                        errorDetail.append("复制失败: ").append(name).append(" - ").append(e.getMessage()).append("\n");
+                        Log.e("Import", "Failed to copy " + name, e);
+                    } finally {
+                        if (in != null) {
+                            try { in.close(); } catch (Exception ignored) {}
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        return foundAny;
     }
 
     private void startDirectVoiceInput() {
