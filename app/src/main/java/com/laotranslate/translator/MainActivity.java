@@ -348,7 +348,11 @@ public class MainActivity extends AppCompatActivity {
                     tvOutput.setText("翻译结果将显示在这里");
                     tvOutput.setTextColor(getColor(R.color.text_hint));
 
-                    if (engineMode == 1 && !BaiduTranslate.hasCredentials()) {
+                    // 优先显示百度 API 的具体错误
+                    String baiduErr = BaiduTranslate.getLastError();
+                    if (baiduErr != null && (engineMode == 1 || engineMode == 0)) {
+                        showError(baiduErr);
+                    } else if (engineMode == 1 && !BaiduTranslate.hasCredentials()) {
                         showError("未配置百度API，请在右上角⚙设置中配置，或切换到「离线」模式");
                     } else if (engineMode == 2 && !offlineTranslator.isReady()) {
                         showError("离线模型未加载，请先下载或导入离线模型");
