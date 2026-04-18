@@ -61,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvEngineTag, tvError, tvVoiceHint, tvStatus, tvOfflineStatus;
     private MaterialButton btnTranslate, btnLangLoZh, btnLangZhLo;
     private MaterialButton btnDownloadModel, btnDeleteModel, btnImportModel;
+    private MaterialButton btnEngineAuto, btnEngineBaidu, btnEngineOffline;
     private ImageButton btnSwap;
     private FloatingActionButton fabVoice, fabSpeak, fabCopy, fabSettings;
     private ProgressBar progressDownload;
@@ -70,6 +71,8 @@ public class MainActivity extends AppCompatActivity {
     private boolean isTranslating = false;
     private boolean isRecording = false;
     private boolean isSpeaking = false;
+    // 引擎模式: 0=自动(百度优先+离线兜底), 1=仅百度, 2=仅离线
+    private int engineMode = 0;
 
     // Engine
     private SpeechRecognizer speechRecognizer;
@@ -113,6 +116,9 @@ public class MainActivity extends AppCompatActivity {
         btnDownloadModel = findViewById(R.id.btnDownloadModel);
         btnDeleteModel = findViewById(R.id.btnDeleteModel);
         btnImportModel = findViewById(R.id.btnImportModel);
+        btnEngineAuto = findViewById(R.id.btnEngineAuto);
+        btnEngineBaidu = findViewById(R.id.btnEngineBaidu);
+        btnEngineOffline = findViewById(R.id.btnEngineOffline);
 
         fabVoice = findViewById(R.id.fabVoice);
         fabSpeak = findViewById(R.id.fabSpeak);
@@ -154,6 +160,11 @@ public class MainActivity extends AppCompatActivity {
         btnDownloadModel.setOnClickListener(v -> downloadModel());
         btnDeleteModel.setOnClickListener(v -> deleteModel());
         btnImportModel.setOnClickListener(v -> importModel());
+
+        // Engine selector
+        btnEngineAuto.setOnClickListener(v -> setEngineMode(0));
+        btnEngineBaidu.setOnClickListener(v -> setEngineMode(1));
+        btnEngineOffline.setOnClickListener(v -> setEngineMode(2));
     }
 
     private void initTTS() {
@@ -232,6 +243,31 @@ public class MainActivity extends AppCompatActivity {
         tvTgtLang.setText(isLoToZh ? "中文" : "老挝语");
     }
 
+    private void setEngineMode(int mode) {
+        engineMode = mode;
+        // 选中: 实心蓝底白字, 未选中: 描边透明底
+        int blue = getColor(R.color.blue);
+        int white = android.graphics.Color.WHITE;
+        int border = getColor(R.color.border);
+        int cardBg = getColor(R.color.card_bg);
+        int textPrimary = getColor(R.color.text_primary);
+
+        btnEngineAuto.setBackgroundTintList(android.content.res.ColorStateList.valueOf(mode == 0 ? blue : cardBg));
+        btnEngineAuto.setTextColor(mode == 0 ? white : textPrimary);
+        btnEngineAuto.setStrokeColor(android.content.res.ColorStateList.valueOf(mode == 0 ? blue : border));
+        btnEngineAuto.setStrokeWidth(mode == 0 ? 0 : 1);
+
+        btnEngineBaidu.setBackgroundTintList(android.content.res.ColorStateList.valueOf(mode == 1 ? blue : cardBg));
+        btnEngineBaidu.setTextColor(mode == 1 ? white : textPrimary);
+        btnEngineBaidu.setStrokeColor(android.content.res.ColorStateList.valueOf(mode == 1 ? blue : border));
+        btnEngineBaidu.setStrokeWidth(mode == 1 ? 0 : 1);
+
+        btnEngineOffline.setBackgroundTintList(android.content.res.ColorStateList.valueOf(mode == 2 ? blue : cardBg));
+        btnEngineOffline.setTextColor(mode == 2 ? white : textPrimary);
+        btnEngineOffline.setStrokeColor(android.content.res.ColorStateList.valueOf(mode == 2 ? blue : border));
+        btnEngineOffline.setStrokeWidth(mode == 2 ? 0 : 1);
+    }
+
     private void updateUI() {
         updateLanguageButtons();
         updateLabels();
@@ -261,17 +297,28 @@ public class MainActivity extends AppCompatActivity {
             String result = null;
             String engine = null;
 
-            // Try Baidu API first
-            if (BaiduTranslate.hasCredentials()) {
-                result = BaiduTranslate.translate(text, from, to);
-                if (result != null) engine = "baidu";
-            }
-
-            // Fallback to offline
-            if (result == null && offlineTranslator.isReady()) {
-                boolean toZh = isLoToZh;
-                result = offlineTranslator.translate(text, toZh);
-                if (result != null) engine = "offline";
+            if (engineMode == 0) {
+                // 自动: 百度优先，离线兜底
+                if (BaiduTranslate.hasCredentials()) {
+                    result = BaiduTranslate.translate(text, from, to);
+                    if (result != null) engine = "baidu";
+                }
+                if (result == null && offlineTranslator.isReady()) {
+                    result = offlineTranslator.translate(text, isLoToZh);
+                    if (result != null) engine = "offline";
+                }
+            } else if (engineMode == 1) {
+                // 仅百度
+                if (BaiduTranslate.hasCredentials()) {
+                    result = BaiduTranslate.translate(text, from, to);
+                    if (result != null) engine = "baidu";
+                }
+            } else {
+                // 仅离线
+                if (offlineTranslator.isReady()) {
+                    result = offlineTranslator.translate(text, isLoToZh);
+                    if (result != null) engine = "offline";
+                }
             }
 
             final String fResult = result;
@@ -301,7 +348,11 @@ public class MainActivity extends AppCompatActivity {
                     tvOutput.setText("翻译结果将显示在这里");
                     tvOutput.setTextColor(getColor(R.color.text_hint));
 
-                    if (!BaiduTranslate.hasCredentials() && !offlineTranslator.isReady()) {
+                    if (engineMode == 1 && !BaiduTranslate.hasCredentials()) {
+                        showError("未配置百度API，请在右上角⚙设置中配置，或切换到「离线」模式");
+                    } else if (engineMode == 2 && !offlineTranslator.isReady()) {
+                        showError("离线模型未加载，请先下载或导入离线模型");
+                    } else if (!BaiduTranslate.hasCredentials() && !offlineTranslator.isReady()) {
                         showError("请配置百度API（右上角⚙设置）或下载离线翻译模型");
                     } else {
                         showError("翻译失败，请检查网络连接或 API 配置");
