@@ -30,4 +30,6 @@ android {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.webkit:webkit:1.9.0'
+    // ONNX Runtime for offline translation
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.16.3'
 }
