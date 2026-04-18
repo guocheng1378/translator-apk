@@ -318,11 +318,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            Toast.makeText(this, "当前设备不支持语音识别", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
@@ -334,18 +329,53 @@ public class MainActivity extends AppCompatActivity {
         startVoiceInput();
     }
 
+    private static final int REQUEST_VOICE = 2001;
+
     private void startVoiceInput() {
+        // 优先用系统语音识别 Intent（兼容性最好）
+        try {
+            android.content.Intent intent = new android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,
+                    isLoToZh ? "lo_LA" : Locale.CHINESE.getLanguage());
+            intent.putExtra(RecognizerIntent.EXTRA_PROMPT,
+                    isLoToZh ? "请说老挝语..." : "请说中文...");
+            startActivityForResult(intent, REQUEST_VOICE);
+        } catch (Exception e) {
+            // Intent 也不行，试试直接用 SpeechRecognizer API
+            startDirectVoiceInput();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_VOICE && resultCode == RESULT_OK && data != null) {
+            ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (matches != null && !matches.isEmpty()) {
+                etSource.setText(matches.get(0));
+                doTranslate();
+            }
+        }
+    }
+
+    private void startDirectVoiceInput() {
         if (speechRecognizer != null) {
             speechRecognizer.destroy();
         }
 
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        if (speechRecognizer == null) {
+            Toast.makeText(this, "当前设备不支持语音识别", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) {
                 isRecording = true;
                 fabVoice.setBackgroundTintList(
                         android.content.res.ColorStateList.valueOf(getColor(R.color.red)));
-                fabVoice.setImageResource(R.drawable.ic_mic);
                 tvVoiceHint.setText("● 正在录音... 说完自动翻译");
                 tvVoiceHint.setTextColor(getColor(R.color.red));
             }
@@ -394,7 +424,6 @@ public class MainActivity extends AppCompatActivity {
                 if (matches != null && !matches.isEmpty()) {
                     etSource.setText(matches.get(0));
                     tvVoiceHint.setText("");
-                    // Auto translate
                     doTranslate();
                 }
             }
