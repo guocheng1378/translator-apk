@@ -1,3 +1,13 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+*.apk
+*.aab
+
+# Python (legacy)
 .buildozer/
 bin/
 __pycache__/
@@ -6,3 +16,7 @@ __pycache__/
 venv/
 config.json
 models/
+
+# OS
+.DS_Store
+Thumbs.db

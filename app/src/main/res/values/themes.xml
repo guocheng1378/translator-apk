@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Translator" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/blue</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorPrimaryContainer">@color/card_bg</item>
+        <item name="colorSecondary">@color/purple</item>
+        <item name="android:statusBarColor">@color/bg_dark</item>
+        <item name="android:navigationBarColor">@color/bg_dark</item>
+        <item name="android:windowBackground">@color/bg_dark</item>
+        <item name="alertDialogTheme">@style/Theme.Translator.Dialog</item>
+    </style>
+
+    <style name="Theme.Translator.Dialog" parent="Theme.Material3.Dark.Dialog">
+        <item name="android:background">@color/card_bg</item>
+        <item name="colorPrimary">@color/blue</item>
+    </style>
+</resources>

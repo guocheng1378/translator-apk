@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background colors -->
+    <color name="bg_dark">#0f172a</color>
+    <color name="card_bg">#1e293b</color>
+    <color name="border">#334155</color>
+    <color name="panel_header_bg">#1a2536</color>
+
+    <!-- Text colors -->
+    <color name="text_primary">#e2e8f0</color>
+    <color name="text_dim">#94a3b8</color>
+    <color name="text_hint">#475569</color>
+
+    <!-- Accent colors -->
+    <color name="blue">#3b82f6</color>
+    <color name="blue_dark">#2563eb</color>
+    <color name="green">#22c55e</color>
+    <color name="green_bg">#166534</color>
+    <color name="green_text">#86efac</color>
+    <color name="red">#ef4444</color>
+    <color name="red_light">#fca5a5</color>
+    <color name="red_bg">#451a1a</color>
+    <color name="red_border">#991b1b</color>
+    <color name="amber">#f59e0b</color>
+    <color name="amber_bg">#854d0e</color>
+    <color name="amber_text">#fde68a</color>
+    <color name="purple">#8b5cf6</color>
+
+    <!-- Theme -->
+    <color name="colorPrimary">#3b82f6</color>
+    <color name="colorPrimaryDark">#0f172a</color>
+    <color name="colorAccent">#8b5cf6</color>
+</resources>
