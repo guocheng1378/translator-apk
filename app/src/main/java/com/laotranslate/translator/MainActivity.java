@@ -296,6 +296,8 @@ public class MainActivity extends AppCompatActivity {
         executor.execute(() -> {
             String result = null;
             String engine = null;
+            boolean offlineTried = false;
+            String offlineError = null;
 
             if (engineMode == 0) {
                 // 自动: 百度优先，离线兜底
@@ -304,8 +306,13 @@ public class MainActivity extends AppCompatActivity {
                     if (result != null) engine = "baidu";
                 }
                 if (result == null && offlineTranslator.isReady()) {
+                    offlineTried = true;
                     result = offlineTranslator.translate(text, isLoToZh);
-                    if (result != null) engine = "offline";
+                    if (result != null) {
+                        engine = "offline";
+                    } else {
+                        offlineError = OfflineTranslator.getLastError();
+                    }
                 }
             } else if (engineMode == 1) {
                 // 仅百度
@@ -316,8 +323,13 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 // 仅离线
                 if (offlineTranslator.isReady()) {
+                    offlineTried = true;
                     result = offlineTranslator.translate(text, isLoToZh);
-                    if (result != null) engine = "offline";
+                    if (result != null) {
+                        engine = "offline";
+                    } else {
+                        offlineError = OfflineTranslator.getLastError();
+                    }
                 }
             }
 
@@ -348,11 +360,13 @@ public class MainActivity extends AppCompatActivity {
                     tvOutput.setText("翻译结果将显示在这里");
                     tvOutput.setTextColor(getColor(R.color.text_hint));
 
-                    // 优先显示百度 API 的具体错误
+                    // 优先显示具体错误
                     String baiduErr = BaiduTranslate.getLastError();
-                    if (baiduErr != null && (engineMode == 1 || engineMode == 0)) {
+                    if (offlineTried && offlineError != null) {
+                        showError("离线翻译失败: " + offlineError);
+                    } else if (baiduErr != null && (engineMode == 1 || engineMode == 0)) {
                         showError(baiduErr);
-                    } else if (engineMode == 1 && !BaiduTranslate.hasCredentials()) {
+                    } else if (offlineTried) {
                         showError("未配置百度API，请在右上角⚙设置中配置，或切换到「离线」模式");
                     } else if (engineMode == 2 && !offlineTranslator.isReady()) {
                         showError("离线模型未加载，请先下载或导入离线模型");

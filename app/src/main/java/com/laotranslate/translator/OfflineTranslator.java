@@ -52,6 +52,8 @@ public class OfflineTranslator {
     private boolean isReady = false;
     // 模型运行模式：true=单独 encoder+decoder，false=仅 decoder（兼容旧单文件模型）
     private boolean useSeparateEncoder = false;
+    // 最近一次错误信息
+    private static volatile String lastError = null;
 
     public interface DownloadProgressCallback {
         void onProgress(int percent);
@@ -78,6 +80,13 @@ public class OfflineTranslator {
      */
     public boolean isReady() {
         return isReady;
+    }
+
+    /**
+     * 获取最近一次错误信息
+     */
+    public static String getLastError() {
+        return lastError;
     }
 
     /**
@@ -224,7 +233,8 @@ public class OfflineTranslator {
             return true;
 
         } catch (Exception e) {
-            Log.e(TAG, "Failed to init model", e);
+            lastError = "模型初始化失败: " + e.getClass().getSimpleName() + " - " + e.getMessage();
+            Log.e(TAG, lastError, e);
             return false;
         }
     }
@@ -235,7 +245,11 @@ public class OfflineTranslator {
      * @param toZh true=老挝语→中文, false=中文→老挝语
      */
     public String translate(String text, boolean toZh) {
-        if (!isReady) return null;
+        lastError = null;
+        if (!isReady) {
+            lastError = "模型未就绪";
+            return null;
+        }
 
         try {
             String srcLang = toZh ? LANG_LO : LANG_ZH;
@@ -342,7 +356,8 @@ public class OfflineTranslator {
             return translated;
 
         } catch (Exception e) {
-            Log.e(TAG, "Translation failed", e);
+            lastError = "推理异常: " + e.getClass().getSimpleName() + " - " + e.getMessage();
+            Log.e(TAG, "Translation failed: " + lastError, e);
             return null;
         }
     }
