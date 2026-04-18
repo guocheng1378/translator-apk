@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>老挝语翻译 | Laos-Chinese Translator</title>
+<meta name="description" content="老挝语和中文双向翻译工具，支持语音输入和语音播报">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--dim:#94a3b8;
+     --blue:#3b82f6;--green:#22c55e;--red:#ef4444;--purple:#8b5cf6;--amber:#f59e0b}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;
+     background:var(--bg);color:var(--text);min-height:100vh;
+     display:flex;flex-direction:column;align-items:center;padding:36px 16px 60px}
+h1{font-size:1.7rem;margin-bottom:6px;
+   background:linear-gradient(135deg,#38bdf8,#818cf8);
+   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+   background-clip:text}
+.sub{color:var(--dim);margin-bottom:28px;font-size:.88rem}
+.container{width:100%;max-width:880px;display:flex;flex-direction:column;gap:18px}
+.lang-bar{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+.lang-btn{padding:8px 22px;border-radius:20px;border:1px solid var(--border);
+          background:var(--card);color:var(--text);cursor:pointer;font-size:.92rem;
+          transition:all .2s;-webkit-tap-highlight-color:transparent}
+.lang-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.lang-btn:hover{border-color:#60a5fa}
+.swap-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);
+          background:var(--card);color:var(--dim);cursor:pointer;font-size:1.15rem;
+          display:flex;align-items:center;justify-content:center;transition:all .3s;
+          -webkit-tap-highlight-color:transparent}
+.swap-btn:hover{border-color:#60a5fa;color:#60a5fa;transform:rotate(180deg)}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{background:var(--card);border-radius:12px;border:1px solid var(--border);
+       overflow:hidden;display:flex;flex-direction:column}
+.panel-header{padding:9px 16px;border-bottom:1px solid var(--border);
+              font-size:.82rem;color:var(--dim);
+              display:flex;justify-content:space-between;align-items:center}
+textarea{width:100%;min-height:190px;padding:16px;border:none;background:transparent;
+         color:var(--text);font-size:1.02rem;line-height:1.6;resize:vertical;
+         outline:none;font-family:inherit;-webkit-tap-highlight-color:transparent}
+textarea::placeholder{color:#475569}
+.output-area{padding:16px;min-height:190px;font-size:1.02rem;line-height:1.6;
+             white-space:pre-wrap;color:var(--text);overflow-y:auto}
+.output-area.empty{color:#475569}
+.btn-row{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap}
+.translate-btn{padding:13px 44px;border-radius:10px;border:none;
+               background:linear-gradient(135deg,var(--blue),var(--purple));
+               color:#fff;font-size:1.02rem;cursor:pointer;transition:all .2s;
+               font-weight:500;-webkit-tap-highlight-color:transparent}
+.translate-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,130,246,.35)}
+.translate-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.voice-btn{width:50px;height:50px;border-radius:50%;border:2px solid var(--red);
+           background:var(--card);color:var(--red);cursor:pointer;font-size:1.35rem;
+           display:flex;align-items:center;justify-content:center;transition:all .2s;
+           -webkit-tap-highlight-color:transparent}
+.voice-btn.recording{background:var(--red);color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.35)}
+                 50%{box-shadow:0 0 0 14px rgba(239,68,68,0)}}
+.voice-btn:disabled{opacity:.35;cursor:not-allowed}
+.speak-btn{width:46px;height:46px;border-radius:50%;border:1px solid var(--border);
+           background:var(--card);color:var(--green);cursor:pointer;font-size:1.2rem;
+           display:flex;align-items:center;justify-content:center;transition:all .2s;
+           -webkit-tap-highlight-color:transparent}
+.speak-btn:hover{border-color:var(--green)}
+.speak-btn.speaking{background:#166534;color:#86efac}
+.copy-btn{width:46px;height:46px;border-radius:50%;border:1px solid var(--border);
+          background:var(--card);color:var(--amber);cursor:pointer;font-size:1.1rem;
+          display:flex;align-items:center;justify-content:center;transition:all .2s;
+          -webkit-tap-highlight-color:transparent}
+.copy-btn:hover{border-color:var(--amber)}
+.copy-btn.copied{background:#854d0e;color:#fde68a}
+.status{text-align:center;font-size:.78rem;color:#54616e;margin-top:8px}
+.mode-tag{padding:2px 9px;border-radius:10px;font-size:.72rem;font-weight:600}
+.mode-tag.baidu{background:#166534;color:#86efac}
+.mode-tag.offline{background:#854d0e;color:#fde68a}
+.error-msg{background:#451a1a;border:1px solid #991b1b;color:#fca5a5;
+           padding:12px 16px;border-radius:10px;display:none;font-size:.88rem}
+.voice-hint{font-size:.72rem;color:#54616e;text-align:center;margin-top:4px;min-height:18px}
+.rec-ind{color:var(--red);font-weight:600}
+/* 设置按钮 */
+.settings-btn{position:fixed;top:14px;right:14px;width:38px;height:38px;
+              border-radius:50%;border:1px solid var(--border);background:var(--card);
+              color:var(--dim);cursor:pointer;font-size:1.05rem;
+              display:flex;align-items:center;justify-content:center;transition:all .2s;
+              z-index:50;-webkit-tap-highlight-color:transparent}
+.settings-btn:hover{color:var(--text)}
+/* 弹窗 */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+               background:rgba(0,0,0,.65);z-index:200;
+               justify-content:center;align-items:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:14px;border:1px solid var(--border);
+       padding:24px;width:420px;max-width:100%}
+.modal h2{margin-bottom:18px;font-size:1.05rem}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:.84rem;color:var(--dim);margin-bottom:5px}
+.form-group input{width:100%;padding:9px 13px;border-radius:8px;
+                  border:1px solid var(--border);background:var(--bg);color:var(--text);
+                  font-size:.92rem;outline:none;transition:border-color .2s}
+.form-group input:focus{border-color:var(--blue)}
+.form-group .hint{font-size:.75rem;color:#54616e;margin-top:4px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+.modal-actions button{padding:9px 22px;border-radius:8px;border:none;
+                      cursor:pointer;font-size:.92rem;transition:all .2s}
+.btn-cancel{background:var(--border);color:var(--text)}
+.btn-save{background:var(--blue);color:#fff}
+.btn-save:hover{background:#2563eb}
+/* 底部 */
+.footer{margin-top:40px;text-align:center;font-size:.72rem;color:#374151}
+.footer a{color:#475569;text-decoration:none}
+/* 响应式 */
+@media(max-width:680px){
+  .panels{grid-template-columns:1fr}
+  textarea{min-height:140px}
+  .output-area{min-height:140px}
+  h1{font-size:1.35rem}
+  body{padding:24px 10px 40px}
+}
+</style>
+</head>
+<body>
+
+<button class="settings-btn" onclick="openSettings()" title="设置 API">⚙</button>
+
+<h1>🇱🇦 ↔ 🇨🇳 老挝语翻译</h1>
+<p class="sub">在线 · 语音输入 · 语音播报</p>
+
+<div class="container">
+  <div class="lang-bar">
+    <button class="lang-btn active" data-from="lo" data-to="zh" onclick="setLang(this)">老挝语 → 中文</button>
+    <button class="swap-btn" onclick="swapLang()" title="交换语言">⇄</button>
+    <button class="lang-btn" data-from="zh" data-to="lo" onclick="setLang(this)">中文 → 老挝语</button>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-header">
+        <span id="src-lang-label">老挝语</span>
+        <span id="char-count">0</span>
+      </div>
+      <textarea id="source" placeholder="输入文字，或按🎤说话..." oninput="updateCount()"></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span id="tgt-lang-label">中文</span>
+        <span id="engine-tag"></span>
+      </div>
+      <div id="output" class="output-area empty">翻译结果将显示在这里</div>
+    </div>
+  </div>
+
+  <div class="error-msg" id="error-msg"></div>
+
+  <div class="btn-row">
+    <button class="voice-btn" id="voice-btn" onclick="toggleVoice()" title="语音输入">🎤</button>
+    <button class="translate-btn" id="translate-btn" onclick="doTranslate()">翻译</button>
+    <button class="speak-btn" id="speak-btn" onclick="speakResult()" title="播放">🔊</button>
+    <button class="copy-btn" id="copy-btn" onclick="copyResult()" title="复制">📋</button>
+  </div>
+  <div class="voice-hint" id="voice-hint"></div>
+  <div class="status" id="status"></div>
+</div>
+
+<!-- 设置弹窗 -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h2>⚙️ 设置</h2>
+    <div class="form-group">
+      <label>百度翻译 APP ID</label>
+      <input type="text" id="cfg-app-id" placeholder="请输入 APP ID">
+    </div>
+    <div class="form-group">
+      <label>百度翻译密钥</label>
+      <input type="text" id="cfg-secret" placeholder="请输入密钥">
+      <div class="hint">数据仅保存在浏览器本地，不会上传到任何服务器</div>
+    </div>
+    <p style="font-size:.78rem;color:#54616e;margin-top:4px;">
+      前往 <a href="https://fanyi-api.baidu.com/manage/developer" target="_blank" style="color:#60a5fa;">百度翻译开放平台</a> 免费注册，每月5万字符
+    </p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSettings()">取消</button>
+      <button class="btn-save" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <a href="https://github.com/guocheng1378/translator-apk" target="_blank">GitHub</a> · 纯前端，无需后端 · 数据本地存储
+</div>
+
+<script>
+// ============================================================
+// 配置 & 状态
+// ============================================================
+let fromLang = 'lo', toLang = 'zh';
+let recognition = null;
+let isRecording = false;
+let currentUtterance = null;
+
+function getConfig() {
+  try {
+    return JSON.parse(localStorage.getItem('translator_cfg')) || {};
+  } catch { return {}; }
+}
+
+function saveConfig(cfg) {
+  localStorage.setItem('translator_cfg', JSON.stringify(cfg));
+}
+
+// ============================================================
+// MD5 (百度 API 签名需要)
+// ============================================================
+function md5(string) {
+  function rotl(v,s) { return (v << s) | (v >>> (32 - s)); }
+  function cmq(q,a,b,x,s,t) {
+    return rotl((a + q + x + t) >>> 0, s) + b;
+  }
+  function ff(a,b,c,d,x,s,t) { return cmq((b & c) | (~b & d), a, b, x, s, t); }
+  function gg(a,b,c,d,x,s,t) { return cmq((b & d) | (c & ~d), a, b, x, s, t); }
+  function hh(a,b,c,d,x,s,t) { return cmq(b ^ c ^ d, a, b, x, s, t); }
+  function ii(a,b,c,d,x,s,t) { return cmq(c ^ (b | ~d), a, b, x, s, t); }
+
+  string = unescape(encodeURIComponent(string));
+  let len = string.length;
+  let buf = [];
+  for (let i = 0; i < len; i++) buf.push(string.charCodeAt(i));
+  let bitLen = len * 8;
+  buf.push(0x80);
+  while (buf.length % 64 !== 56) buf.push(0);
+  for (let i = 0; i < 8; i++) buf.push(i < 4 ? bitLen >>> (i * 8) : 0);
+
+  let a = 0x67452301, b = 0xefcdab89, c = 0x98badcfe, d = 0x10325476;
+  const S = [7,12,17,22, 7,12,17,22, 7,12,17,22, 7,12,17,22,
+             5,9,14,20, 5,9,14,20, 5,9,14,20, 5,9,14,20,
+             4,11,16,23, 4,11,16,23, 4,11,16,23, 4,11,16,23,
+             6,10,15,21, 6,10,15,21, 6,10,15,21, 6,10,15,21];
+  const T = [];
+  for (let i = 0; i < 64; i++) T[i] = (Math.floor(Math.abs(Math.sin(i + 1)) * (1 << 32))) >>> 0;
+
+  for (let offset = 0; offset < buf.length; offset += 64) {
+    let M = [];
+    for (let j = 0; j < 16; j++) {
+      M[j] = (buf[offset + j*4]) | (buf[offset + j*4+1] << 8) |
+             (buf[offset + j*4+2] << 16) | (buf[offset + j*4+3] << 24);
+    }
+    let aa = a, bb = b, cc = c, dd = d;
+    for (let i = 0; i < 64; i++) {
+      let f, g;
+      if (i < 16) { f = ff; g = i; }
+      else if (i < 32) { f = gg; g = (5*i+1) % 16; }
+      else if (i < 48) { f = hh; g = (3*i+5) % 16; }
+      else { f = ii; g = (7*i) % 16; }
+      let tmp = d; d = c; c = b;
+      b = (b + rotl((a + f(b,c,d) + M[g] + T[i]) >>> 0, S[i])) >>> 0;
+      a = tmp;
+    }
+    a = (a + aa) >>> 0; b = (b + bb) >>> 0;
+    c = (c + cc) >>> 0; d = (d + dd) >>> 0;
+  }
+
+  function toHex(n) {
+    let s = '';
+    for (let i = 0; i < 4; i++) s += ('0' + ((n >>> (i * 8)) & 0xff).toString(16)).slice(-2);
+    return s;
+  }
+  return toHex(a) + toHex(b) + toHex(c) + toHex(d);
+}
+
+// ============================================================
+// 百度翻译 API (纯前端调用)
+// ============================================================
+async function baiduTranslate(text, from, to) {
+  const cfg = getConfig();
+  const appId = cfg.baidu_app_id;
+  const secretKey = cfg.baidu_secret_key;
+  if (!appId || !secretKey) throw new Error('请先配置百度翻译 API（点击右上角 ⚙）');
+
+  const salt = String(Math.floor(Math.random() * 65536) + 32768);
+  const sign = md5(appId + text + salt + secretKey);
+
+  const url = `https://fanyi-api.baidu.com/api/trans/vip/translate?` +
+    `q=${encodeURIComponent(text)}&from=${from}&to=${to}` +
+    `&appid=${appId}&salt=${salt}&sign=${sign}`;
+
+  const resp = await fetch(url);
+  const data = await resp.json();
+
+  if (data.trans_result) {
+    return data.trans_result.map(r => r.dst).join('\n');
+  }
+  throw new Error(data.error_msg || '翻译请求失败');
+}
+
+// ============================================================
+// 界面交互
+// ============================================================
+function setLang(el) {
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  fromLang = el.dataset.from;
+  toLang = el.dataset.to;
+  updateLabels();
+}
+
+function swapLang() {
+  [fromLang, toLang] = [toLang, fromLang];
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.from === fromLang && b.dataset.to === toLang);
+  });
+  updateLabels();
+  const src = document.getElementById('source');
+  const out = document.getElementById('output');
+  if (!out.classList.contains('empty')) {
+    src.value = out.textContent;
+    out.textContent = '翻译结果将显示在这里';
+    out.classList.add('empty');
+    document.getElementById('engine-tag').textContent = '';
+  }
+  updateCount();
+}
+
+function updateLabels() {
+  const names = {lo: '老挝语', zh: '中文'};
+  document.getElementById('src-lang-label').textContent = names[fromLang] || fromLang;
+  document.getElementById('tgt-lang-label').textContent = names[toLang] || toLang;
+}
+
+function updateCount() {
+  document.getElementById('char-count').textContent = document.getElementById('source').value.length;
+}
+
+async function doTranslate() {
+  const text = document.getElementById('source').value.trim();
+  if (!text) return;
+
+  const btn = document.getElementById('translate-btn');
+  const out = document.getElementById('output');
+  const err = document.getElementById('error-msg');
+  const tag = document.getElementById('engine-tag');
+
+  btn.disabled = true;
+  btn.textContent = '翻译中...';
+  err.style.display = 'none';
+  out.textContent = '';
+  out.classList.remove('empty');
+  tag.textContent = '';
+
+  try {
+    const langMap = {lo: 'lo', zh: 'zh'};
+    const result = await baiduTranslate(text, langMap[fromLang], langMap[toLang]);
+    out.textContent = result;
+    tag.innerHTML = '<span class="mode-tag baidu">百度API</span>';
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+    out.classList.add('empty');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '翻译';
+}
+
+// ============================================================
+// 语音输入 (Web Speech API)
+// ============================================================
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('voice-btn').disabled = true;
+    document.getElementById('voice-hint').textContent = '当前浏览器不支持语音';
+    return null;
+  }
+  const r = new SR();
+  r.continuous = false;
+  r.interimResults = true;
+  r.maxAlternatives = 1;
+
+  r.onstart = () => {
+    isRecording = true;
+    document.getElementById('voice-btn').classList.add('recording');
+    document.getElementById('voice-hint').innerHTML =
+      '<span class="rec-ind">● 正在录音...</span> 说完自动翻译';
+  };
+
+  r.onresult = (event) => {
+    let transcript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+    document.getElementById('source').value = transcript;
+    updateCount();
+  };
+
+  r.onend = () => {
+    isRecording = false;
+    document.getElementById('voice-btn').classList.remove('recording');
+    document.getElementById('voice-hint').textContent = '';
+    const text = document.getElementById('source').value.trim();
+    if (text) doTranslate();
+  };
+
+  r.onerror = (event) => {
+    isRecording = false;
+    document.getElementById('voice-btn').classList.remove('recording');
+    let msg = '语音识别出错';
+    if (event.error === 'not-allowed') msg = '请允许麦克风权限';
+    else if (event.error === 'no-speech') msg = '未检测到语音';
+    document.getElementById('voice-hint').textContent = msg;
+    setTimeout(() => {
+      document.getElementById('voice-hint').textContent = '';
+    }, 3000);
+  };
+
+  return r;
+}
+
+function toggleVoice() {
+  if (!recognition) {
+    recognition = initSpeechRecognition();
+    if (!recognition) return;
+  }
+  if (isRecording) {
+    recognition.stop();
+  } else {
+    const langMap = {lo: 'lo-LA', zh: 'zh-CN'};
+    recognition.lang = langMap[fromLang] || 'zh-CN';
+    try {
+      recognition.start();
+    } catch {
+      recognition.stop();
+      setTimeout(() => recognition.start(), 100);
+    }
+  }
+}
+
+// ============================================================
+// 语音播报
+// ============================================================
+function speakResult() {
+  const out = document.getElementById('output');
+  const text = out.textContent.trim();
+  if (!text || out.classList.contains('empty')) return;
+
+  const btn = document.getElementById('speak-btn');
+
+  // 停止当前播放
+  if (currentUtterance) {
+    speechSynthesis.cancel();
+    btn.classList.remove('speaking');
+    currentUtterance = null;
+    return;
+  }
+
+  if (!('speechSynthesis' in window)) return;
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = toLang === 'zh' ? 'zh-CN' : 'lo-LA';
+  utter.rate = 0.9;
+
+  utter.onstart = () => btn.classList.add('speaking');
+  utter.onend = () => { btn.classList.remove('speaking'); currentUtterance = null; };
+  utter.onerror = () => { btn.classList.remove('speaking'); currentUtterance = null; };
+
+  currentUtterance = utter;
+  speechSynthesis.speak(utter);
+}
+
+// ============================================================
+// 复制结果
+// ============================================================
+function copyResult() {
+  const out = document.getElementById('output');
+  const text = out.textContent.trim();
+  if (!text || out.classList.contains('empty')) return;
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.classList.add('copied');
+    btn.textContent = '✅';
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '📋'; }, 1500);
+  });
+}
+
+// ============================================================
+// 设置
+// ============================================================
+function openSettings() {
+  const cfg = getConfig();
+  document.getElementById('cfg-app-id').value = cfg.baidu_app_id || '';
+  document.getElementById('cfg-secret').value = cfg.baidu_secret_key || '';
+  document.getElementById('settings-modal').classList.add('show');
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('show');
+}
+
+function saveSettings() {
+  const cfg = {
+    baidu_app_id: document.getElementById('cfg-app-id').value.trim(),
+    baidu_secret_key: document.getElementById('cfg-secret').value.trim()
+  };
+  saveConfig(cfg);
+  closeSettings();
+  updateStatus();
+}
+
+// ============================================================
+// 状态
+// ============================================================
+function updateStatus() {
+  const cfg = getConfig();
+  const hasApi = !!(cfg.baidu_app_id && cfg.baidu_secret_key);
+  const el = document.getElementById('status');
+  el.innerHTML = hasApi
+    ? '<span style="color:#22c55e">● 已配置百度API</span>'
+    : '<span style="color:#f59e0b">○ 请配置百度API（右上角 ⚙）</span>';
+}
+
+// ============================================================
+// 快捷键 & 初始化
+// ============================================================
+document.getElementById('source').addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    doTranslate();
+  }
+});
+
+// 点击弹窗外部关闭
+document.getElementById('settings-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+
+updateStatus();
+updateLabels();
+initSpeechRecognition();
+</script>
+</body>
+</html>
