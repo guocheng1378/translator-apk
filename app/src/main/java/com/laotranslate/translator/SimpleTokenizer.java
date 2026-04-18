@@ -27,9 +27,6 @@ public class SimpleTokenizer {
     private Map<String, Integer> langTokenIds;
     private int vocabSize;
 
-    // SentencePiece 模型数据
-    private byte[] spModel;
-
     public SimpleTokenizer(File tokenizerJsonFile) throws Exception {
         vocab = new HashMap<>();
         idToToken = new HashMap<>();
@@ -118,11 +115,23 @@ public class SimpleTokenizer {
             if (vocab.containsKey(token)) {
                 ids.add((long) vocab.get(token));
             } else {
-                // 未知字符，逐字节处理
-                for (char c : token.toCharArray()) {
-                    String byteToken = String.format("<0x%02X>", (int) c & 0xFF);
-                    if (vocab.containsKey(byteToken)) {
-                        ids.add((long) vocab.get(byteToken));
+                // 未知字符，按 UTF-8 字节拆分处理
+                try {
+                    byte[] utf8Bytes = token.getBytes("UTF-8");
+                    for (byte b : utf8Bytes) {
+                        // NLLB-200 byte tokens: <0x00> ~ <0xFF>
+                        String byteToken = String.format("<0x%02X>", b & 0xFF);
+                        if (vocab.containsKey(byteToken)) {
+                            ids.add((long) vocab.get(byteToken));
+                        }
+                    }
+                } catch (Exception e) {
+                    // fallback: 单字符直接尝试词表
+                    for (char c : token.toCharArray()) {
+                        String s = String.valueOf(c);
+                        if (vocab.containsKey(s)) {
+                            ids.add((long) vocab.get(s));
+                        }
                     }
                 }
             }
@@ -178,11 +187,19 @@ public class SimpleTokenizer {
     }
 
     /**
-     * 解码 token IDs 为文本
+     * 解码 token IDs 为文本（完整数组）
      */
     public String decode(int[] ids) {
+        return decode(ids, ids.length);
+    }
+
+    /**
+     * 解码 token IDs 为文本（指定有效长度）
+     */
+    public String decode(int[] ids, int length) {
         StringBuilder sb = new StringBuilder();
-        for (int id : ids) {
+        for (int i = 0; i < length; i++) {
+            int id = ids[i];
             if (id == 0 || id == 1 || id == 2) continue; // skip BOS, PAD, EOS
 
             String token = idToToken.get(id);
@@ -196,10 +213,11 @@ public class SimpleTokenizer {
                     token = token.substring(1);
                 }
 
-                // 处理 byte token
+                // 处理 byte token: <0x0A> ~ <0xFF>
                 if (token.startsWith("<0x") && token.endsWith(">")) {
                     try {
-                        int code = Integer.parseInt(token.substring(3, 5), 16);
+                        String hex = token.substring(3, token.length() - 1); // 提取 0A 或 FF
+                        int code = Integer.parseInt(hex, 16);
                         sb.append((char) code);
                     } catch (Exception e) {
                         sb.append(token);

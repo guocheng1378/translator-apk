@@ -46,9 +46,12 @@ public class OfflineTranslator {
 
     private Context context;
     private OrtEnvironment env;
-    private OrtSession session;
+    private OrtSession decoderSession;
+    private OrtSession encoderSession;
     private SimpleTokenizer tokenizer;
     private boolean isReady = false;
+    // 模型运行模式：true=单独 encoder+decoder，false=仅 decoder（兼容旧单文件模型）
+    private boolean useSeparateEncoder = false;
 
     public interface DownloadProgressCallback {
         void onProgress(int percent);
@@ -64,10 +67,10 @@ public class OfflineTranslator {
      */
     public boolean isModelAvailable() {
         File modelFile = new File(context.getFilesDir(), MODEL_FILE);
-        File encoderFile = new File(context.getFilesDir(), ENCODER_FILE);
         File tokenizerFile = new File(context.getFilesDir(), TOKENIZER_FILE);
-        return modelFile.exists() && encoderFile.exists() && tokenizerFile.exists()
-                && modelFile.length() > 1_000_000 && encoderFile.length() > 1_000_000;
+        // 只要 decoder 模型和 tokenizer 存在即可（encoder 可选）
+        return modelFile.exists() && tokenizerFile.exists()
+                && modelFile.length() > 1_000_000;
     }
 
     /**
@@ -177,6 +180,7 @@ public class OfflineTranslator {
 
         try {
             File modelFile = new File(context.getFilesDir(), MODEL_FILE);
+            File encoderFile = new File(context.getFilesDir(), ENCODER_FILE);
             File tokenizerFile = new File(context.getFilesDir(), TOKENIZER_FILE);
 
             if (!modelFile.exists() || !tokenizerFile.exists()) {
@@ -187,18 +191,36 @@ public class OfflineTranslator {
             // 初始化 ONNX Runtime
             env = OrtEnvironment.getEnvironment();
             OrtSession.SessionOptions opts = new OrtSession.SessionOptions();
-
-            // 优化选项
             opts.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
             opts.setIntraOpNumThreads(4);
 
-            session = env.createSession(modelFile.getAbsolutePath(), opts);
+            // 加载 decoder 模型
+            decoderSession = env.createSession(modelFile.getAbsolutePath(), opts);
+            Log.i(TAG, "Decoder model loaded. Inputs: " + decoderSession.getInputNames());
+
+            // 如果存在单独的 encoder 文件，加载它
+            if (encoderFile.exists() && encoderFile.length() > 1_000_000) {
+                try {
+                    OrtSession.SessionOptions encOpts = new OrtSession.SessionOptions();
+                    encOpts.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
+                    encOpts.setIntraOpNumThreads(4);
+                    encoderSession = env.createSession(encoderFile.getAbsolutePath(), encOpts);
+                    useSeparateEncoder = true;
+                    Log.i(TAG, "Encoder model loaded. Inputs: " + encoderSession.getInputNames());
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to load encoder, will try decoder-only mode", e);
+                    useSeparateEncoder = false;
+                }
+            } else {
+                useSeparateEncoder = false;
+                Log.i(TAG, "No separate encoder file, using decoder-only mode");
+            }
 
             // 初始化 tokenizer
             tokenizer = new SimpleTokenizer(tokenizerFile);
 
             isReady = true;
-            Log.i(TAG, "Model initialized successfully");
+            Log.i(TAG, "Model initialized successfully (separateEncoder=" + useSeparateEncoder + ")");
             return true;
 
         } catch (Exception e) {
@@ -227,27 +249,74 @@ public class OfflineTranslator {
             LongBuffer inputBuf = LongBuffer.wrap(inputIds);
             long[] attentionMask = new long[seqLen];
             Arrays.fill(attentionMask, 1L);
-
             LongBuffer maskBuf = LongBuffer.wrap(attentionMask);
 
             long[] shape = {1, seqLen};
             OnnxTensor inputTensor = OnnxTensor.createTensor(env, inputBuf, shape);
             OnnxTensor maskTensor = OnnxTensor.createTensor(env, maskBuf, shape);
 
-            // 设置目标语言 forced bos token
+            // 获取目标语言的 forced bos token id
             long forcedBosId = tokenizer.getLangTokenId(tgtLang);
 
-            // 运行推理
-            Map<String, OnnxTensor> inputs = new HashMap<>();
-            inputs.put("input_ids", inputTensor);
-            inputs.put("attention_mask", maskTensor);
+            OrtSession.Result result;
+            float[][][] logits;
 
-            OrtSession.Result result = session.run(inputs);
+            if (useSeparateEncoder && encoderSession != null) {
+                // === 模式1: 单独 encoder + decoder ===
+                // 先运行 encoder
+                Map<String, OnnxTensor> encInputs = new HashMap<>();
+                encInputs.put("input_ids", inputTensor);
+                encInputs.put("attention_mask", maskTensor);
+
+                OrtSession.Result encResult = encoderSession.run(encInputs);
+                OnnxTensor encoderHiddenStates = (OnnxTensor) encResult.get("last_hidden_state");
+                long[] encShape = encoderHiddenStates.getInfo().getShape();
+
+                // 创建 decoder 的 attention mask（长度 = encoder 输出序列长度）
+                int encSeqLen = (int) encShape[1];
+                long[] decAttentionMask = new long[encSeqLen];
+                Arrays.fill(decAttentionMask, 1L);
+                OnnxTensor decMaskTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(decAttentionMask), new long[]{1, encSeqLen});
+
+                // decoder 只需要 encoder_hidden_states + decoder_input_ids
+                // decoder_input_ids = [BOS, forcedBosId] 用于开始生成
+                long[] decoderInputIds;
+                if (forcedBosId >= 0) {
+                    decoderInputIds = new long[]{BOS_TOKEN_ID, forcedBosId};
+                } else {
+                    decoderInputIds = new long[]{BOS_TOKEN_ID};
+                }
+                OnnxTensor decInputTensor = OnnxTensor.createTensor(env,
+                        LongBuffer.wrap(decoderInputIds),
+                        new long[]{1, decoderInputIds.length});
+
+                Map<String, OnnxTensor> decInputs = new HashMap<>();
+                decInputs.put("encoder_attention_mask", decMaskTensor);
+                decInputs.put("encoder_hidden_states", encoderHiddenStates);
+                decInputs.put("input_ids", decInputTensor);
+
+                result = decoderSession.run(decInputs);
+                logits = (float[][][]) result.get(0).getValue();
+
+                // 清理 encoder 资源
+                decInputTensor.close();
+                decMaskTensor.close();
+                encResult.close();
+
+            } else {
+                // === 模式2: 仅 decoder（兼容旧模型或合并模型）===
+                Map<String, OnnxTensor> inputs = new HashMap<>();
+                inputs.put("input_ids", inputTensor);
+                inputs.put("attention_mask", maskTensor);
+
+                result = decoderSession.run(inputs);
+                logits = (float[][][]) result.get(0).getValue();
+            }
 
             // 解码输出
-            float[][][] logits = (float[][][]) result.get(0).getValue();
             int outputLen = logits[0].length;
             int[] outputIds = new int[outputLen];
+            int actualLen = 0;
 
             for (int i = 0; i < outputLen; i++) {
                 int maxIdx = 0;
@@ -258,11 +327,11 @@ public class OfflineTranslator {
                         maxIdx = j;
                     }
                 }
-                outputIds[i] = maxIdx;
-                if (maxIdx == EOS_TOKEN_ID) break;
+                if (maxIdx == EOS_TOKEN_ID || maxIdx == PAD_TOKEN_ID) break;
+                outputIds[actualLen++] = maxIdx;
             }
 
-            String translated = tokenizer.decode(outputIds);
+            String translated = tokenizer.decode(outputIds, actualLen);
 
             // 清理资源
             inputTensor.close();
@@ -281,11 +350,17 @@ public class OfflineTranslator {
      * 释放资源
      */
     public void release() {
-        if (session != null) {
-            try { session.close(); } catch (Exception ignored) {}
+        if (decoderSession != null) {
+            try { decoderSession.close(); } catch (Exception ignored) {}
+            decoderSession = null;
+        }
+        if (encoderSession != null) {
+            try { encoderSession.close(); } catch (Exception ignored) {}
+            encoderSession = null;
         }
         if (env != null) {
             try { env.close(); } catch (Exception ignored) {}
+            env = null;
         }
         isReady = false;
     }
@@ -338,7 +413,7 @@ public class OfflineTranslator {
         }
     }
 
-    private void copyFile(File src, File dst) throws IOException {
+    void copyFile(File src, File dst) throws IOException {
         try (InputStream in = new FileInputStream(src);
              OutputStream out = new FileOutputStream(dst)) {
             byte[] buf = new byte[8192];
@@ -347,6 +422,21 @@ public class OfflineTranslator {
                 out.write(buf, 0, len);
             }
         }
+    }
+
+    /**
+     * 从 ContentResolver InputStream 复制文件（用于 URI 导入）
+     */
+    boolean copyFromStream(InputStream in, String destFileName) throws IOException {
+        File dst = new File(context.getFilesDir(), destFileName);
+        try (OutputStream out = new FileOutputStream(dst)) {
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+        }
+        return dst.exists() && dst.length() > 100;
     }
 
     /**

@@ -20,8 +20,8 @@ public class BaiduTranslate {
     private static final String TAG = "BaiduTranslate";
     private static final String API_URL = "https://fanyi-api.baidu.com/api/trans/vip/translate";
 
-    private static String sAppId;
-    private static String sSecretKey;
+    private static volatile String sAppId;
+    private static volatile String sSecretKey;
     private static final OkHttpClient client = new OkHttpClient();
 
     public static void setCredentials(String appId, String secretKey) {

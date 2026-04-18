@@ -367,8 +367,6 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_IMPORT_MODEL && resultCode == RESULT_OK && data != null) {
             android.net.Uri uri = data.getData();
             if (uri != null) {
-                // 获取文件夹路径
-                String path = uri.getPath();
                 Toast.makeText(this, "正在导入模型...", Toast.LENGTH_SHORT).show();
 
                 executor.execute(() -> {
@@ -406,21 +404,22 @@ public class MainActivity extends AppCompatActivity {
 
     private String getRealPath(android.net.Uri uri) {
         // 尝试从 URI 获取真实路径
-        if ("file".equals(uri.getScheme())) {
+        String scheme = uri.getScheme();
+        if ("file".equals(scheme)) {
             return uri.getPath();
         }
+        // Android 10+ SAF: content:// URI 无法直接获取文件路径，返回 null 走 URI 导入
         return null;
     }
 
     private boolean importFromUri(android.net.Uri treeUri) {
         try {
-            android.content.ContentResolver resolver = getContentResolver();
-            android.provider.DocumentsContract.TreeDocumentFile treeDoc =
-                    android.provider.DocumentsContract.TreeDocumentFile.fromTreeUri(this, treeUri);
+            // 使用 DocumentFile.fromTreeUri 解析 SAF 树目录
+            androidx.documentfile.provider.DocumentFile treeDoc =
+                    androidx.documentfile.provider.DocumentFile.fromTreeUri(this, treeUri);
 
             if (treeDoc == null || !treeDoc.isDirectory()) return false;
 
-            File dstDir = getFilesDir();
             boolean foundAny = false;
 
             String[] neededFiles = {
@@ -439,21 +438,17 @@ public class MainActivity extends AppCompatActivity {
                 "decoder_model_merged_quantized.onnx"
             };
 
-            for (android.provider.DocumentsContract.DocumentFile doc : treeDoc.listFiles()) {
+            // 遍历目录中的文件
+            for (androidx.documentfile.provider.DocumentFile doc : treeDoc.listFiles()) {
                 String name = doc.getName();
                 if (name == null) continue;
 
                 for (int i = 0; i < neededFiles.length; i++) {
                     if (name.equals(neededFiles[i])) {
-                        File dst = new File(dstDir, dstNames[i]);
-                        try (InputStream in = resolver.openInputStream(doc.getUri());
-                             OutputStream out = new FileOutputStream(dst)) {
-                            byte[] buf = new byte[8192];
-                            int len;
-                            while ((len = in.read(buf)) > 0) {
-                                out.write(buf, 0, len);
+                        try (InputStream in = getContentResolver().openInputStream(doc.getUri())) {
+                            if (in != null) {
+                                foundAny |= offlineTranslator.copyFromStream(in, dstNames[i]);
                             }
-                            foundAny = true;
                         }
                         break;
                     }
@@ -605,10 +600,9 @@ public class MainActivity extends AppCompatActivity {
             locale = Locale.CHINESE;
         } else {
             locale = new Locale("lo", "LA");
-            int result = tts.setLanguage(locale);
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+            int langResult = tts.setLanguage(locale);
+            if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
                 locale = new Locale("th", "TH"); // 回退到泰语
-                tts.setLanguage(locale);
             }
         }
         tts.setLanguage(locale);
