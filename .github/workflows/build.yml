@@ -47,6 +47,28 @@ jobs:
           name: translator-apk
           path: app/build/outputs/apk/debug/*.apk
 
+      # ====== 自动创建 GitHub Release ======
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          release_name: Translator APK v1.0.${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Upload APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: app/build/outputs/apk/debug/*.apk
+          asset_name: translator.apk
+          asset_content_type: application/vnd.android.package-archive
+
       - name: Upload build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
