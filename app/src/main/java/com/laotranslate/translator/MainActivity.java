@@ -282,8 +282,9 @@ public class MainActivity extends AppCompatActivity {
         tvOutput.setTextColor(getColor(R.color.text_primary));
         tvEngineTag.setText("");
 
-        String from = isLoToZh ? "lao" : "zh";
-        String to = isLoToZh ? "zh" : "lao";
+        // 百度 API 可能不支持 zh→lo，使用 auto 让百度自动检测源语言
+        String from = isLoToZh ? "lo" : "auto";
+        String to = isLoToZh ? "zh" : "lo";
 
         executor.execute(() -> {
             String result = null;
