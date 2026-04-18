@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -50,6 +51,7 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_RECORD_AUDIO = 1001;
+    private static final int REQUEST_IMPORT_MODEL = 1002;
     private static final String PREFS_NAME = "translator_prefs";
 
     // UI
@@ -57,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvOutput, tvCharCount, tvSrcLang, tvTgtLang;
     private TextView tvEngineTag, tvError, tvVoiceHint, tvStatus, tvOfflineStatus;
     private MaterialButton btnTranslate, btnLangLoZh, btnLangZhLo;
-    private MaterialButton btnDownloadModel, btnDeleteModel;
+    private MaterialButton btnDownloadModel, btnDeleteModel, btnImportModel;
     private ImageButton btnSwap;
     private FloatingActionButton fabVoice, fabSpeak, fabCopy, fabSettings;
     private ProgressBar progressDownload;
@@ -109,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
         btnSwap = findViewById(R.id.btnSwap);
         btnDownloadModel = findViewById(R.id.btnDownloadModel);
         btnDeleteModel = findViewById(R.id.btnDeleteModel);
+        btnImportModel = findViewById(R.id.btnImportModel);
 
         fabVoice = findViewById(R.id.fabVoice);
         fabSpeak = findViewById(R.id.fabSpeak);
@@ -149,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
         // Offline model
         btnDownloadModel.setOnClickListener(v -> downloadModel());
         btnDeleteModel.setOnClickListener(v -> deleteModel());
+        btnImportModel.setOnClickListener(v -> importModel());
     }
 
     private void initTTS() {
@@ -351,12 +355,116 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+
         if (requestCode == REQUEST_VOICE && resultCode == RESULT_OK && data != null) {
             ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             if (matches != null && !matches.isEmpty()) {
                 etSource.setText(matches.get(0));
                 doTranslate();
             }
+        }
+
+        if (requestCode == REQUEST_IMPORT_MODEL && resultCode == RESULT_OK && data != null) {
+            android.net.Uri uri = data.getData();
+            if (uri != null) {
+                // 获取文件夹路径
+                String path = uri.getPath();
+                Toast.makeText(this, "正在导入模型...", Toast.LENGTH_SHORT).show();
+
+                executor.execute(() -> {
+                    try {
+                        // 使用 DocumentFile 读取文件
+                        String realPath = getRealPath(uri);
+                        boolean ok = false;
+                        if (realPath != null) {
+                            ok = offlineTranslator.importModel(realPath);
+                        }
+
+                        if (!ok) {
+                            // 尝试通过 content:// URI 复制
+                            ok = importFromUri(uri);
+                        }
+
+                        final boolean success = ok;
+                        mainHandler.post(() -> {
+                            if (success) {
+                                Toast.makeText(this, "模型导入成功", Toast.LENGTH_SHORT).show();
+                                initOfflineTranslator();
+                            } else {
+                                Toast.makeText(this, "导入失败：未找到模型文件\n请确保文件夹包含 decoder_model_merged_quantized.onnx 等文件", Toast.LENGTH_LONG).show();
+                            }
+                        });
+                    } catch (Exception e) {
+                        Log.e("Import", "Import failed", e);
+                        mainHandler.post(() ->
+                            Toast.makeText(this, "导入失败: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                    }
+                });
+            }
+        }
+    }
+
+    private String getRealPath(android.net.Uri uri) {
+        // 尝试从 URI 获取真实路径
+        if ("file".equals(uri.getScheme())) {
+            return uri.getPath();
+        }
+        return null;
+    }
+
+    private boolean importFromUri(android.net.Uri treeUri) {
+        try {
+            android.content.ContentResolver resolver = getContentResolver();
+            android.provider.DocumentsContract.TreeDocumentFile treeDoc =
+                    android.provider.DocumentsContract.TreeDocumentFile.fromTreeUri(this, treeUri);
+
+            if (treeDoc == null || !treeDoc.isDirectory()) return false;
+
+            File dstDir = getFilesDir();
+            boolean foundAny = false;
+
+            String[] neededFiles = {
+                "decoder_model_merged_quantized.onnx",
+                "encoder_model_quantized.onnx",
+                "tokenizer.json",
+                "tokenizer_config.json",
+                "nllb-200-distilled-600M-quantized.onnx"
+            };
+
+            String[] dstNames = {
+                "decoder_model_merged_quantized.onnx",
+                "encoder_model_quantized.onnx",
+                "tokenizer.json",
+                "tokenizer_config.json",
+                "decoder_model_merged_quantized.onnx"
+            };
+
+            for (android.provider.DocumentsContract.DocumentFile doc : treeDoc.listFiles()) {
+                String name = doc.getName();
+                if (name == null) continue;
+
+                for (int i = 0; i < neededFiles.length; i++) {
+                    if (name.equals(neededFiles[i])) {
+                        File dst = new File(dstDir, dstNames[i]);
+                        try (InputStream in = resolver.openInputStream(doc.getUri());
+                             OutputStream out = new FileOutputStream(dst)) {
+                            byte[] buf = new byte[8192];
+                            int len;
+                            while ((len = in.read(buf)) > 0) {
+                                out.write(buf, 0, len);
+                            }
+                            foundAny = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            return foundAny && offlineTranslator.isModelAvailable();
+
+        } catch (Exception e) {
+            Log.e("Import", "URI import failed", e);
+            return false;
         }
     }
 
@@ -557,6 +665,13 @@ public class MainActivity extends AppCompatActivity {
     // ================================================================
     // Offline Model
     // ================================================================
+
+    private void importModel() {
+        // 打开文件夹选择器
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.putExtra(android.content.Intent.EXTRA_TITLE, "选择包含模型文件的文件夹");
+        startActivityForResult(intent, REQUEST_IMPORT_MODEL);
+    }
 
     private void downloadModel() {
         new AlertDialog.Builder(this)

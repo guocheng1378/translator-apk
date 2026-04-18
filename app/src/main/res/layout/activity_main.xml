@@ -113,6 +113,17 @@
                             android:layout_marginEnd="8dp" />
 
                         <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnImportModel"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="导入本地"
+                            android:textSize="12sp"
+                            app:strokeColor="@color/blue"
+                            android:textColor="@color/blue"
+                            android:layout_marginEnd="8dp" />
+
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnDeleteModel"
                             style="@style/Widget.Material3.Button.OutlinedButton"
                             android:layout_width="wrap_content"

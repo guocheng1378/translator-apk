@@ -299,6 +299,57 @@ public class OfflineTranslator {
     }
 
     /**
+     * 从本地目录导入模型文件
+     * @param modelDir 包含模型文件的目录路径
+     * @return 是否导入成功
+     */
+    public boolean importModel(String modelDir) {
+        try {
+            File srcDir = new File(modelDir);
+            if (!srcDir.exists() || !srcDir.isDirectory()) return false;
+
+            File dstDir = context.getFilesDir();
+
+            // 需要复制的文件名映射
+            String[][] filePairs = {
+                {"decoder_model_merged_quantized.onnx", MODEL_FILE},
+                {"encoder_model_quantized.onnx", ENCODER_FILE},
+                {"tokenizer.json", TOKENIZER_FILE},
+                {"tokenizer_config.json", TOKENIZER_CONFIG_FILE},
+                // 也兼容旧名称
+                {"nllb-200-distilled-600M-quantized.onnx", MODEL_FILE},
+            };
+
+            boolean foundAny = false;
+            for (String[] pair : filePairs) {
+                File src = new File(srcDir, pair[0]);
+                if (src.exists() && src.length() > 100) {
+                    File dst = new File(dstDir, pair[1]);
+                    copyFile(src, dst);
+                    foundAny = true;
+                }
+            }
+
+            return foundAny && isModelAvailable();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Import failed", e);
+            return false;
+        }
+    }
+
+    private void copyFile(File src, File dst) throws IOException {
+        try (InputStream in = new FileInputStream(src);
+             OutputStream out = new FileOutputStream(dst)) {
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+        }
+    }
+
+    /**
      * 删除模型文件释放空间
      */
     public void deleteModel() {
