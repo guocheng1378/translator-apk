@@ -20,3 +20,6 @@ models/
 # OS
 .DS_Store
 Thumbs.db
+
+# Offline model files (too large for git)
+offline-model/
