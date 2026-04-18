@@ -282,8 +282,8 @@ public class MainActivity extends AppCompatActivity {
         tvOutput.setTextColor(getColor(R.color.text_primary));
         tvEngineTag.setText("");
 
-        String from = isLoToZh ? "lo" : "zh";
-        String to = isLoToZh ? "zh" : "lo";
+        String from = isLoToZh ? "lao" : "zh";
+        String to = isLoToZh ? "zh" : "lao";
 
         executor.execute(() -> {
             String result = null;
